@@ -1,9 +1,12 @@
 package cropper
 
 import (
+	"fmt"
 	"image"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"gocv.io/x/gocv"
 )
@@ -12,14 +15,13 @@ type Cropper struct {
 	FileName string
 }
 
-func (ptr *Cropper) Crop(fileName string) {
+func (ptr *Cropper) Crop(fileName string, dstPath string) {
 	// TODO - Add Arg for cropped size offset
 	// TODO - Add Arg for dst dir
 	ptr.FileName = fileName
 
 	// Load Scan Image
-	img := gocv.NewMat()
-	img = loadImg(fileName)
+  img := loadImg(fileName)
 
 	// Generate Grayscale Image from Loaded Image
 	imgGray := gocv.NewMat()
@@ -48,20 +50,30 @@ func (ptr *Cropper) Crop(fileName string) {
 
 	// Crop Scan with Rotated Rectangle
 	croppedImg := gocv.NewMat()
-	szOffset := 30
+	szOffset := 0
 	// You have to flip Height & Width or it won't crop right
 	sz := image.Pt(rect.Height-szOffset, rect.Width-szOffset)
 	gocv.GetRectSubPix(rotImg, sz, rect.Center, &croppedImg)
 
 	// Save Cropped Image to File
-	// TODO - parse new file name from user input fileName ie. img_CROPPED.JPG
-	saveImg("cropped.JPG", &croppedImg)
+  outputName := outputFileName(fileName, dstPath)
+	saveImg(outputName, &croppedImg)
+  fmt.Println("Cropped photo saved to", outputName)
 
 	// Clean Up
 	contours.vectors.Close()
 	contours.hierarchy.Close()
 	rotImg.Close()
 	croppedImg.Close()
+}
+
+func outputFileName(fileName string, dstPath string) string{
+  origFile := filepath.Base(fileName)
+  fileExt := filepath.Ext(origFile)
+  originalName := strings.Trim(origFile, fileExt)
+  outputName := fmt.Sprintf("%v_CROPPED%v", originalName, fileExt)
+  output := filepath.Join(dstPath, outputName)
+  return output
 }
 
 func loadImg(fileName string) gocv.Mat {
