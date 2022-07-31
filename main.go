@@ -5,9 +5,7 @@ import (
 	"image"
 	"image/color"
 	"log"
-	"math"
 	"os"
-	"sort"
 
 	"gocv.io/x/gocv"
 )
@@ -15,113 +13,14 @@ import (
 type Photos []gocv.PointVector
 
 func main() {
-	// CornerDebug()
-	t := []int{1, 3, 2}
-	m := Median(t)
-	fmt.Printf("%v: %v\n", m, t[int(m)])
-}
-
-type Contour struct {
-	i int
-	n int32
-	l int32
-	c int32
-	p int32
-	a float64
-}
-type Container []Contour
-
-func (pC *Container) Append(v gocv.Veci, a float64, i int) {
-	c := Contour{
-		i: i,
-		n: v[0],
-		l: v[1],
-		c: v[2],
-		p: v[3],
-	}
-	*pC = append(*pC, c)
-}
-
-func (C *Contour) Show() {
-	fmt.Printf("%v [ n: %v, l: %v, c: %v, p: %v ] a: %v\n", C.i, C.n, C.l, C.c, C.p, C.a)
-}
-
-func CornerDebug() {
-	img := LoadImg("./imgs-test/corner.JPG")
-	C := GetContours(&img)
-	fmt.Printf("C: %v, H: %v\n", C.C.Size(), C.H.Cols())
-
-	container := Container{}
-
-	for i := 0; i < C.C.Size(); i++ {
-		v := C.H.GetVeciAt(0, i)
-		A := gocv.ContourArea(C.C.At(i))
-		if A > 1000 {
-			fmt.Println(A)
-		}
-		container.Append(v, A, i)
-	}
-
-	for i := 0; i < len(container); i++ {
-		tmp := container[i]
-		if tmp.a > 0 {
-			tmp.Show()
-		}
-	}
-}
-
-func Median(values []int) int {
-	valuesMap := make(map[int]int)
-	for i, v := range values {
-		valuesMap[v] = i
-	}
-	fmt.Println("map: ", valuesMap)
-
-	valuesCopy := make([]int, len(values))
-	copy(valuesCopy, values)
-	fmt.Println("valuesCopy: ", valuesCopy)
-	sort.Ints(valuesCopy)
-	fmt.Println("Sorted valuesCopy: ", valuesCopy)
-
-	l := len(valuesCopy)
-	fmt.Println("l: ", l)
-	var m int
-
-	if l == 0 {
-		log.Fatal("len(valuesCopy) == 0")
-	} else if l%2 == 0 {
-		m = (l / 2) - (l % 2)
-		fmt.Println("m: ", m)
-	} else {
-		m = l / 2
-		fmt.Println("m: ", m)
-	}
-
-	return valuesMap[valuesCopy[m]]
-}
-
-func QuickSort(c Container) Container {
-	if len(c) <= 1 {
-		return c
-	} else {
-		mid := int(math.Floor(float64(len(c) / 2)))
-		m := map[float64]int{
-			c[0].a:      0,
-			c[mid].a:    1,
-			c[len(c)].a: 2,
-		}
-		var tmp []float64
-		for k, _ := range m {
-			tmp = append(tmp, k)
-		}
-		pivot := c[m[tmp[1]]]
-	}
+	Run()
 }
 
 func Run() {
 	middle := "./imgs-test/middle.JPG"
 	mid_rot := "./imgs-test/middle_rotated.JPG"
 	crooked := "./imgs-test/crooked.JPG"
+	corner := "./imgs-test/corner.JPG"
 
 	img := LoadImg(middle)
 	output := CropImg(&img)
@@ -134,6 +33,10 @@ func Run() {
 	img = LoadImg(crooked)
 	output = CropImg(&img)
 	SaveImg("./cropped/crooked_cropped.JPG", &output)
+
+	img = LoadImg(corner)
+	output = CropImg(&img)
+	SaveImg("./cropped/corner_cropped.JPG", &output)
 
 	img.Close()
 	output.Close()
@@ -165,7 +68,9 @@ func CropImg(img *gocv.Mat) gocv.Mat {
 
 	straight = StraightenImg(img, &rect)
 
-	sz := image.Pt(rect.Height, rect.Width)
+	szOffset := 30
+	sz := image.Pt(rect.Height-szOffset, rect.Width-szOffset)
+	fmt.Println("sz: ", sz)
 	gocv.GetRectSubPix(straight, sz, rect.Center, &output)
 
 	straight.Close()
@@ -210,7 +115,8 @@ func GetContours(img *gocv.Mat) Contours {
 	thresh := gocv.NewMat()
 
 	gocv.CvtColor(*img, &imgGray, gocv.ColorBGRToGray)
-	_ = gocv.Threshold(imgGray, &thresh, 127, 255, gocv.ThresholdBinary)
+	// _ = gocv.Threshold(imgGray, &thresh, 127, 255, gocv.ThresholdBinary)
+	_ = gocv.Threshold(imgGray, &thresh, 245, 255, gocv.ThresholdToZeroInv)
 
 	C.C = gocv.FindContoursWithParams(
 		thresh,
@@ -232,7 +138,8 @@ func FindPhoto(C *Contours) []int {
 		v := C.H.GetVeciAt(0, i)
 		_, _, c, p := v[0], v[1], v[2], v[3]
 		contourArea := gocv.ContourArea(C.C.At(i))
-		if p == 0 && c != -1 && contourArea > 2500 {
+		// if p == 0 && c != -1 && contourArea > 2500 {
+		if p == -1 && c != -1 && contourArea > 200 {
 			photoIdx = append(photoIdx, i)
 		}
 	}
